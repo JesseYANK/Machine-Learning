@@ -1,0 +1,107 @@
+---
+title: "Report of Course Project"
+output:
+  html_document: default
+---
+
+This is the report of Course Project in Pratical Machine Learning.
+
+##Backgroud
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These types of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. 
+
+With the data collected from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. Our purpose is to predict their manner in which they did in their exericse. 
+
+##Data
+The data can be downloaded from 
+
+training data: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+testing data: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+
+Before we load the data into R, we can have a preview in excel. Many variables in these two files are nulls or NA. We believe that these variables should be removed from the predicotors.
+
+The blank and NA should be interpreted as NA values when we load the data into R.
+The code can be shown like below
+```{r}
+Data<-read.csv("pml-training.csv",na.strings=c("NA",""));
+Prediction<-read.csv("pml-testing.csv",na.strings=c("NA",""));
+dim(Data); dim(Prediction)
+```
+
+##Data Cleaning
+We can not analysis the data before we remove these NA variables. Also, there will be some unrelevant variables, which should also be removed in our analysis.
+
+* Remove these NA and unrelevant variables.
+```{r}
+CleaningData<-subset(Data[,colSums(is.na(Data))==0],select=-c(1:7))
+Pre<-subset(Prediction[,colSums(is.na(Data))==0],select=-c(1:7))
+dim(CleaningData); dim(Pre)
+```
+* Check the variables that have extremely low variance 
+```{r}
+library(caret)
+zeroVar<-nearZeroVar(CleaningData[sapply(CleaningData,is.numeric)],saveMetrics=TRUE) 
+pml<-CleaningData[,zeroVar$nzv==0];
+dim(pml)
+```
+Now, we successfully reduced the data dimension from 160 to 53.
+
+##Split data to training and testing for cross validation.
+```{r}
+set.seed(1)
+inTrain<-createDataPartition(y=pml$classe,p=0.7,list=FALSE);
+training<-pml[inTrain,];testing<-pml[-inTrain,];
+dim(training);dim(testing)
+```
+We got 13737 samples and 52 variables for training, 5885 samples and 52 variables for testing. (The left one variable is the object "classe")
+
+##Analysis
+Noticed that the classe variable is a factor variable. We mainly used the "rpart" and "random forest" to predict the manner. 
+
+* Rpart
+```{r}
+set.seed(1)
+modelRpart<-train(training$classe~.,method="rpart",data=training);
+modelRpart
+confusionMatrix(testing$classe,predict(modelRpart,newdata=testing));
+```
+
+This method has a very low accuracy in predicting manner.
+
+* Random Forest
+
+This method use trees as building blocks to build more complex models. We use randomForest function directly which is much faster than train function.
+```{r}
+library(randomForest)
+set.seed(1)
+modelRF<-randomForest(classe~.,data=training,importance=TRUE);
+modelRF
+confusionMatrix(testing$classe,predict(modelRF,newdata=testing));
+
+```
+
+The accuracy in testing data is very closed to 100%.
+
+```{r,fig.align='center'}
+varImpPlot(modelRF)
+```
+
+we can see which variables have higher impact on the prediction.
+
+With this two methods, we can know that the accuracy of random forest method is higher.
+
+##Conclusion
+
+Now, with the results showed before, we know that the random forest model did a good job. So we can predict the manner in testing data with random forest method.
+```{r}
+Prediction<-predict(modelRF,newdata=Pre)
+Prediction
+```
+
+
+
+
+
+
